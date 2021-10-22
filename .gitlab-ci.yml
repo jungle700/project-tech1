@@ -1,0 +1,48 @@
+stages:
+  - build
+  - push-to-ecr
+
+variables:
+  DOCKER_IMAGE: docker:19.03.13
+  ECR_URL: 347037659031.dkr.ecr.eu-west-2.amazonaws.com/test
+  AWS_DEFAULT_REGION: eu-west-2
+
+build:
+  image: $DOCKER_IMAGE #docker:latest
+  stage: build
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    - |
+      if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]]; then
+        tag=""
+        echo "Running on default branch '$CI_DEFAULT_BRANCH': tag = 'latest'"
+      else
+        tag=":$CI_COMMIT_REF_SLUG"
+        echo "Running on branch '$CI_COMMIT_BRANCH': tag = $tag"
+      fi
+    - docker build --pull -t "$CI_REGISTRY_IMAGE${tag}" .
+    - docker push "$CI_REGISTRY_IMAGE${tag}"
+  rules:
+    - if: $CI_COMMIT_BRANCH
+      exists:
+        - Dockerfile
+
+push-to-ecr: 
+  stage: push-to-ecr
+  image: $DOCKER_IMAGE
+  services:
+    - docker:19.03.12-dind
+  before_script:
+    - apk add --no-cache curl jq python3 py3-pip
+    - pip install awscli
+    - aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_URL
+    - aws --version
+    - docker info
+    - docker --version
+  script: |
+    docker build -t $ECR_URL:latest .
+    docker push $ECR_URL:latest
+    echo "Build complete."

@@ -1,0 +1,24 @@
+---
+- hosts: localhost
+  tasks:
+    - name: Install packages
+      package: 
+        name: python3
+        state: present
+
+    - name: Install python packages
+      pip:
+        name:
+          - flask
+
+    - name: Install packages
+      package: 
+        name: nginx
+        state: present
+
+    - name: Start a nginx service
+      service:
+        name: nginx
+        enabled: yes
+        state: started
+        
